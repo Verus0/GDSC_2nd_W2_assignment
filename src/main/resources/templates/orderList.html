@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>주문 목록</title>
+  <style>
+    table {
+      width: 80%;
+      margin: 20px auto;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+      border: 1px solid #ddd;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    button {
+      padding: 5px 10px;
+      margin: 5px;
+      border: none;
+      cursor: pointer;
+    }
+    .edit-btn {
+      background-color: #4CAF50;
+      color: white;
+    }
+    .delete-btn {
+      background-color: #f44336;
+      color: white;
+    }
+    .edit-form {
+      display: none;
+      margin: 20px auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      width: 50%;
+      background-color: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+<h1>주문 목록</h1>
+<p th:text="${message}"></p>
+
+<table>
+  <thead>
+  <tr>
+    <th>이름</th>
+    <th>전화번호</th>
+    <th>주문한 음식</th>
+    <th>수량</th>
+    <th>최종 가격</th>
+    <th>주문 변경</th>
+    <th>주문 취소</th>
+  </tr>
+  </thead>
+  <tbody>
+  <!-- 서버에서 전달된 orders 리스트를 순회하여 테이블에 데이터 출력 -->
+  <tr th:each="order : ${orders}">
+    <td th:text="${order.userName}"></td>
+    <td th:text="${order.phoneNum}"></td>
+    <td th:text="${order.foodName}"></td>
+    <td th:text="${order.quantity}"></td>
+    <td th:text="${order.total}"></td>
+    <td>
+      <button class="edit-btn"
+              th:data-id="${order.id}"
+              th:data-username="${order.userName}"
+              th:data-phone-num="${order.phoneNum}"
+              th:data-food-name="${order.foodName}"
+              th:data-quantity="${order.quantity}">주문변경</button>
+    </td>
+    <td>
+      <form class="delete-form" th:action="@{/delete/{id}(id=${order.id})}" method="POST">
+        <button class="delete-btn" type="submit">주문취소</button>
+      </form>
+    </td>
+  </tr>
+  </tbody>
+</table>
+
+<!-- 수정 폼 (숨겨진 상태로 존재) -->
+<div class="edit-form" id="editForm">
+  <h2>주문 변경</h2>
+  <form id="orderEditForm">
+    <input type="hidden" id="editOrderId">
+    <input type="hidden" id="editUsername">
+    <input type="hidden" id="editPhoneNum"> <!-- 전화번호도 hidden 필드로 추가 -->
+
+    <div>
+      <label for="editMenuName">음식명:</label>
+      <select id="editMenuName" required>
+        <option value="초밥">초밥</option>
+        <option value="텐동">텐동</option>
+        <option value="라멘">라멘</option>
+        <option value="소바">소바</option>
+        <option value="와규">와규</option>
+      </select>
+    </div>
+    <div>
+      <label for="editQuantity">수량:</label>
+      <input type="number" id="editQuantity" required min="1">
+    </div>
+    <button type="submit">주문 변경</button>
+    <button type="button" onclick="document.getElementById('editForm').style.display = 'none';">취소</button>
+  </form>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const editButtons = document.querySelectorAll('.edit-btn');
+
+    editButtons.forEach(function(button) {
+      button.addEventListener('click', function() {
+        const id = this.getAttribute('data-id');
+        const username = this.getAttribute('data-username');
+        const phoneNum = this.getAttribute('data-phone-num');
+        const foodName = this.getAttribute('data-food-name');
+        const quantity = this.getAttribute('data-quantity');
+
+        // 수정 폼에 데이터를 세팅
+        document.getElementById('editOrderId').value = id;
+        document.getElementById('editUsername').value = username; // hidden에 userName 설정
+        document.getElementById('editPhoneNum').value = phoneNum; // hidden에 phoneNum 설정
+        document.getElementById('editMenuName').value = foodName;
+        document.getElementById('editQuantity').value = quantity;
+
+        // 수정 폼 보이기
+        document.getElementById('editForm').style.display = 'block';
+      });
+    });
+
+    // 삭제 폼에 대한 이벤트 리스너 추가
+    const deleteForms = document.querySelectorAll('.delete-form');
+    deleteForms.forEach(form => {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        if (confirm('정말로 이 주문을 취소하시겠습니까?')) {
+          const formData = new FormData(this);
+
+          fetch(this.action, {
+            method: 'POST',
+            body: formData
+          })
+                  .then(response => {
+                    if (!response.ok) {
+                      throw new Error('서버 응답 오류');
+                    }
+                    return response.text();
+                  })
+                  .then(message => {
+                    alert(message);
+                    location.reload();
+                  })
+                  .catch(error => {
+                    console.error('Error:', error);
+                    alert('삭제 실패: ' + error.message);
+                  });
+        }
+      });
+    });
+  });
+
+  // 수정 폼 제출 시 처리
+  document.getElementById('orderEditForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const id = document.getElementById('editOrderId').value;
+    const foodName = document.getElementById('editMenuName').value;
+    const quantity = document.getElementById('editQuantity').value;
+    const phoneNum = document.getElementById('editPhoneNum').value; // phoneNum hidden 필드에서 가져오기
+    const userName = document.getElementById('editUsername').value; // userName hidden 필드에서 가져오기
+
+    const updatedOrderData = {
+      userName: userName,     // hidden에서 가져온 userName
+      phoneNum: phoneNum,     // hidden에서 가져온 phoneNum
+      foodName: foodName,
+      quantity: quantity
+    };
+
+    // 서버에 수정 요청
+    fetch(`/update/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updatedOrderData)
+    })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error('서버 응답 오류');
+              }
+              return response.json();  // 응답을 JSON으로 파싱
+            })
+            .then(data => {
+              alert(data.message);  // 'message'가 'undefined'이면 서버에서 제대로 응답하지 않음
+              if (data.message === '주문이 변경되었습니다.') {
+                window.location.reload();  // 페이지 리로드하여 목록 갱신
+              }
+            })
+            .catch(error => {
+              console.error('주문 수정 실패:', error);
+              alert('주문 수정에 실패했습니다.');
+            });
+  });
+</script>
+
+</body>
+</html>
