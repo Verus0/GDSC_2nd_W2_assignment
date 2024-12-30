@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>주문 목록</title>
+  <style>
+    table {
+      width: 80%;
+      margin: 20px auto;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+      border: 1px solid #ddd;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    button {
+      padding: 5px 10px;
+      margin: 5px;
+      border: none;
+      cursor: pointer;
+    }
+    .edit-btn {
+      background-color: #4CAF50;
+      color: white;
+    }
+    .delete-btn {
+      background-color: #f44336;
+      color: white;
+    }
+    .edit-form {
+      display: none;
+      margin: 20px auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      width: 50%;
+      background-color: #f9f9f9;
+    }
+    .logout-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: #f44336;
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <form action="/logout" method="POST">
+    <button class="logout-btn" type="submit">로그아웃</button>
+  </form>
+
+<h1>주문 목록</h1>
+
+<table>
+  <thead>
+  <tr>
+    <th>이메일</th>
+    <th>닉네임</th>
+    <th>음식명</th>
+    <th>수량</th>
+    <th>최종 가격</th>
+    <th>주문 변경</th>
+    <th>주문 취소</th>
+  </tr>
+  </thead>
+  <tbody>
+  <!-- 서버에서 전달된 orders 리스트를 순회하여 테이블에 데이터 출력 -->
+  <tr th:each="order : ${orders}">
+    <td th:text="${order.email}"></td>
+    <td th:text="${order.nickname}"></td>
+    <td th:text="${order.foodName}"></td>
+    <td th:text="${order.quantity}"></td>
+    <td th:text="${order.total}"></td>
+    <td>
+      <button class="edit-btn"
+              th:data-id="${order.id}"
+              th:data-email="${order.email}"
+              th:data-nickname="${order.nickname}"
+              th:data-food-name="${order.foodName}"
+              th:data-quantity="${order.quantity}"
+              th:data-price="${order.total}">주문 변경</button>
+    </td>
+    <td>
+      <button class="delete-btn" type="button" th:data-id="${order.id}">주문 취소</button>
+    </td>
+  </tr>
+  </tbody>
+</table>
+
+<!-- 수정 폼 (숨겨진 상태로 존재) -->
+<div class="edit-form" id="editForm">
+  <h2>주문 변경</h2>
+  <form id="orderEditForm">
+    <input type="hidden" id="editOrderId">
+
+    <div>
+      <label for="editMenuName">음식명:</label>
+      <select id="editMenuName" required>
+        <option value="" disabled selected>메뉴를 선택하세요</option>
+        <option value="초밥">초밥</option>
+        <option value="텐동">텐동</option>
+        <option value="라멘">라멘</option>
+        <option value="소바">소바</option>
+        <option value="와규">와규</option>
+      </select>
+    </div>
+    <div>
+      <label for="editQuantity">수량:</label>
+      <input type="number" id="editQuantity" required min="1">
+    </div>
+
+    <button type="submit">주문 변경</button>
+    <button type="button" onclick="document.getElementById('editForm').style.display = 'none';">취소</button>
+  </form>
+</div>
+
+<script>
+  document.querySelectorAll('.edit-btn').forEach(button => {
+    button.addEventListener('click', function () {
+      // 버튼에서 데이터 속성 가져오기
+      const id = this.getAttribute('data-id');
+      const foodName = this.getAttribute('data-food-name');
+      const quantity = this.getAttribute('data-quantity');
+
+      // 수정 폼에 데이터를 세팅
+      document.getElementById('editOrderId').value = id; // hidden input에 id 설정
+      document.getElementById('editMenuName').value = foodName; // 음식명 설정
+      document.getElementById('editQuantity').value = quantity; // 수량 설정
+
+      // 수정 폼 보이기
+      document.getElementById('editForm').style.display = 'block';
+    });
+  });
+
+  // 수정 폼 제출 이벤트 처리
+  document.getElementById('orderEditForm').addEventListener('submit', function (e) {
+    e.preventDefault(); // 기본 폼 제출 동작 방지
+
+    // 수정된 데이터 가져오기
+    const id = document.getElementById('editOrderId').value;
+    const foodName = document.getElementById('editMenuName').value;
+    const quantity = document.getElementById('editQuantity').value;
+
+    const updatedOrderData = {
+      foodName: foodName,
+      quantity: quantity,
+    };
+
+    // 서버에 수정 요청
+    fetch(`/orders/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updatedOrderData)
+    })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error('서버 응답 오류');
+              }
+              return response.json();
+            })
+            .then(data => {
+              alert(data.message);
+              if (data.message === '주문이 변경되었습니다.') {
+                window.location.reload(); // 페이지 리로드하여 변경된 목록 표시
+              }
+            })
+            .catch(error => {
+              console.error('주문 수정 실패:', error);
+              alert('주문 수정에 실패했습니다.');
+            });
+  });
+
+  // 모든 삭제 버튼에 클릭 이벤트 추가
+  document.querySelectorAll('.delete-btn').forEach(button => {
+    button.addEventListener('click', function () {
+      // 버튼에서 data-id 속성으로 주문 ID 가져오기
+      const id = this.getAttribute('data-id');
+
+      // 삭제 요청을 확인하는 경고 메시지
+      if (confirm('이 주문을 정말 취소하시겠습니까?')) {
+        // 서버에 DELETE 요청 보내기
+        fetch(`/orders/${id}`, {
+          method: 'DELETE', // HTTP DELETE 메서드
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+                .then(response => {
+                  if (!response.ok) {
+                    throw new Error('서버 응답 오류');
+                  }
+                  return response.json();
+                })
+                .then(data => {
+                  alert(data.message);
+                  if (data.message === '주문이 성공적으로 삭제되었습니다.') {
+                    window.location.reload(); // 페이지 리로드하여 변경된 목록 표시
+                  }
+                })
+                .catch(error => {
+                  console.error('주문 삭제 실패:', error);
+                  alert('주문 삭제에 실패했습니다.');
+                });
+      }
+    });
+  });
+
+
+</script>
+
+
+
+</body>
+</html>
